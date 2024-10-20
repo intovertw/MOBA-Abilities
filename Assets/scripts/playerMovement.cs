@@ -1,61 +1,80 @@
+using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+
 public class playerMovement : MonoBehaviour
 {
-    float moveSpeed = 5f;
+    public float moveSpeed = 5f, range = 4f;
+    public LayerMask enemyMask;
     public Rigidbody rb;
-    bool hookMode = false;
-    public GameObject hookPrefab;
-    public Camera mainCamera;
+    public Transform player, target;
     Vector3 movement;
 
     // basic movement
     void FixedUpdate()
     {
-        if (!hookMode)
-        {
-            movement = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
+        movement = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical")).normalized;
 
-            rb.MovePosition(rb.position + movement * moveSpeed * Time.fixedDeltaTime);
-        }
+        rb.MovePosition(rb.position + movement * moveSpeed * Time.fixedDeltaTime);
     }
 
     private void Update()
     {
-        //hookMode bool checker
-        if (hookMode)
+        //skill activation
+        if (Input.GetKey("e"))
         {
-            Debug.Log("hook on");
-        }
-        else
-        {
-            Debug.Log("hook off");
-        }
+            if (target == null)
+            {
+                FindTarget();
+                return;
+            }
 
-        if (Input.GetKeyDown("e"))
-        {
-            hookMode = true;
+            if (!CheckTargetIsInRange())
+            {
+                target = null;
+            }
+            else
+            {
+                Vector3 targetDirection = target.position - transform.position;
+                Vector3 newDirection = Vector3.RotateTowards(transform.forward, targetDirection, 1, 0.0f);
+                transform.rotation = Quaternion.LookRotation(new Vector3(newDirection.x, 0, newDirection.z));
+            }
         }
-
-        if (hookMode && Input.GetMouseButtonDown(1))
+        if (Input.GetKeyUp("e") && target != null)
         {
-            hookMode = false;
-        }
-
-        if (hookMode && Input.GetMouseButtonDown(0))
-        {
-            SpawnHook();
+            Debug.Log("skill activate!");
+            Skill();
         }
     }
 
-    void SpawnHook()
+    protected bool CheckTargetIsInRange()
     {
-        Debug.Log("hook spawned");
+        Debug.Log(Vector2.Distance(target.position, transform.position) <= range);
+        return Vector2.Distance(target.position, transform.position) <= range;
+    }
 
-        Instantiate(hookPrefab, transform.position, Quaternion.identity);
+    protected void FindTarget()
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position, range, enemyMask);
+        if (hits.Length > 0)
+        {
+            target = hits[0].transform;
+            Debug.Log("I FOUND SOMEONE!!!");
+        }
+    }
 
-        hookMode = false;
+    protected void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, range);
+    }
+
+    void Skill()
+    {
+        Sequence jump = DOTween.Sequence();
+
+        jump.Append(target.transform.DOJump(transform.position + (-transform.forward * range), 3f, 1, 0.5f));
     }
 }
